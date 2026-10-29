@@ -1,0 +1,21 @@
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+#print-area { --quote-brand-color: #0369a1; }
+#print-area[data-quote-theme="classic"] { border-top: 5px solid var(--quote-brand-color); }
+#print-area[data-quote-theme="modern"] { border-left: 5px solid var(--quote-brand-color); }
+#print-area[data-quote-theme="minimal"] { border-color: transparent; box-shadow: none; }
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area { position: absolute; left: 0; top: 0; width: 100%; color: #000 !important; background: #fff !important; }
+  #print-area * { color: #111827 !important; border-color: #d1d5db !important; background-color: transparent !important; box-shadow: none !important; }
+  #print-area .print-brand, #print-area .print-total { color: var(--quote-brand-color) !important; }
+  #print-area[data-quote-theme="classic"] { border-top-color: var(--quote-brand-color) !important; }
+  #print-area[data-quote-theme="modern"] { border-left-color: var(--quote-brand-color) !important; }
+  #print-area[data-quote-theme="minimal"] { border-color: transparent !important; }
+  #print-area .print-total { font-size: 24pt !important; }
+  .no-print { display: none !important; }
+  @page { size: A4; margin: 16mm; }
+}

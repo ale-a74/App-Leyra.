@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leyra Seguridad - &#211;rdenes de Servicio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{brand:{50:'#f0f7ff',100:'#e0effe',500:'#0284c7',600:'#0369a1',700:'#075985',800:'#0c4a6e',900:'#0f172a'},accent:{500:'#f59e0b',600:'#d97706'}}}}}</script>
+</head>
+<body data-page="orders" class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col md:flex-row overflow-hidden">
+
+  <div class="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between no-print">
+    <div class="flex items-center space-x-3"><div class="bg-brand-600 p-2 rounded-lg text-white"><i class="fa-solid fa-shield-halved text-xl"></i></div><span class="font-bold text-lg text-white tracking-wide">Leyra Seguridad</span></div>
+    <button id="mobile-menu-btn" class="text-slate-400 hover:text-white" aria-label="Abrir men&#250;"><i class="fa-solid fa-bars text-2xl"></i></button>
+  </div>
+  <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col justify-between no-print">
+    <div>
+      <div class="p-5 flex items-center justify-between border-b border-slate-800"><div class="flex items-center space-x-3"><div class="bg-gradient-to-tr from-brand-600 to-accent-500 p-2.5 rounded-xl text-white"><i class="fa-solid fa-shield-halved text-xl"></i></div><div><h1 class="font-bold text-lg leading-none text-white">Leyra <span class="text-accent-500">Seguridad</span></h1><span class="text-xs text-slate-400">Gesti&#243;n de servicios</span></div></div><button id="close-sidebar-btn" class="md:hidden text-slate-400" aria-label="Cerrar men&#250;"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+      <nav class="p-4 space-y-1">
+        <button onclick="switchTab('dashboard')" data-nav="dashboard" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-chart-pie w-5 text-center"></i><span>Inicio / Dashboard</span></button>
+        <button onclick="switchTab('clients')" data-nav="clients" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-users w-5 text-center"></i><span>Clientes</span></button>
+        <button onclick="switchTab('orders')" data-nav="orders" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-list-check w-5 text-center"></i><span>&#211;rdenes</span></button>
+        <button onclick="switchTab('quotes')" data-nav="quotes" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-calculator w-5 text-center"></i><span>Presupuestos</span></button>
+        <button onclick="switchTab('objects')" data-nav="objects" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-microchip w-5 text-center"></i><span>Equipos / Objetos</span></button>
+        <button onclick="switchTab('inventory')" data-nav="inventory" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800/50"><i class="fa-solid fa-boxes-stacked w-5 text-center"></i><span>Inventario</span></button>
+      </nav>
+    </div>
+    <div class="p-4 border-t border-slate-800 bg-slate-900/50"><div class="flex items-center space-x-3 bg-slate-800/60 p-3 rounded-xl"><div class="w-9 h-9 rounded-full bg-brand-600/30 text-brand-500 flex items-center justify-center"><i class="fa-solid fa-user-gear"></i></div><div><p class="text-sm font-semibold text-white">Leyra Seguridad</p><p class="text-xs text-slate-400">Gesti&#243;n de servicios</p></div></div></div>
+  </aside>
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden no-print"></div>
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+  <header class="min-h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur px-6 py-3 flex items-center justify-between gap-3 no-print">
+    <h2 class="text-xl font-bold text-white tracking-wide">&#211;rdenes de Servicio</h2>
+    <button onclick="openModal('new-order-modal')" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl text-sm font-semibold"><i class="fa-solid fa-plus mr-2"></i>Nueva Orden</button>
+  </header>
+  <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6"><section id="tab-orders" class="tab-content space-y-6">
+        <!-- Controls & Filters Header -->
+        <div class="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <!-- Search -->
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-500"></i>
+            <input type="text" id="order-search" oninput="renderOrders()" placeholder="Buscar por cliente, dirección o folio..." class="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500">
+          </div>
+
+          <!-- Status Filter -->
+          <div class="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+            <select id="order-status-filter" onchange="renderOrders()" class="bg-slate-950 border border-slate-800 text-slate-300 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-brand-500">
+              <option value="ALL">Todos los Estados</option>
+              <option value="Pendiente">Pendientes</option>
+              <option value="En Proceso">En Proceso</option>
+              <option value="Completado">Completados</option>
+              <option value="Cancelado">Cancelados</option>
+            </select>
+
+            <select id="order-type-filter" onchange="renderOrders()" class="bg-slate-950 border border-slate-800 text-slate-300 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-brand-500">
+              <option value="ALL">Todos los Sistemas</option>
+              <option value="Cámaras CCTV">Cámaras CCTV</option>
+              <option value="Alarma Anti-Intrusión">Alarma Anti-Intrusión</option>
+              <option value="Control de Acceso">Control de Acceso</option>
+              <option value="Mantenimiento General">Mantenimiento</option>
+              <option value="Reparación Electrónica">Reparación Electrónica</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Orders Table / List -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-950/80 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-4">Folio / Fecha</th>
+                  <th class="py-3.5 px-4">Cliente / Inmueble</th>
+                  <th class="py-3.5 px-4">Servicio</th>
+                  <th class="py-3.5 px-4">Prioridad</th>
+                  <th class="py-3.5 px-4">Estado</th>
+                  <th class="py-3.5 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="orders-table-body" class="divide-y divide-slate-800">
+                <!-- Dynamic Content -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section></div>
+</main>
+<div id="new-order-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+        <h3 id="order-modal-title" class="font-bold text-lg text-white flex items-center space-x-2">
+          <i class="fa-solid fa-file-pen text-brand-500"></i>
+          <span>Nueva Orden de Trabajo</span>
+        </h3>
+        <button onclick="closeModal('new-order-modal')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <form id="order-form" onsubmit="handleOrderSubmit(event)" class="p-6 overflow-y-auto space-y-4 flex-1">
+        <input type="hidden" id="order-id">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Cliente *</label>
+            <select id="form-order-client" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+              <!-- Rendered dynamically from Clients DB -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Tipo de Servicio *</label>
+            <select id="form-order-type" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+              <option value="Cámaras CCTV">Cámaras CCTV / DVR</option>
+              <option value="Alarma Anti-Intrusión">Alarma Anti-Intrusión</option>
+              <option value="Control de Acceso">Control de Acceso / Portería</option>
+              <option value="Mantenimiento General">Mantenimiento Preventivo/Correctivo</option>
+              <option value="Cerco Eléctrico">Cerco Eléctrico Perimetral</option>
+              <option value="Reparación Electrónica">Reparación Electrónica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Dirección / Inmueble del Trabajo *</label>
+          <input type="text" id="form-order-address" required placeholder="Ej. Av. Pellegrini 1420, Piso 2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Prioridad</label>
+            <select id="form-order-priority" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+              <option value="Media">Media</option>
+              <option value="Alta">Alta (Urgencia)</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Estado</label>
+            <select id="form-order-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+              <option value="Pendiente">Pendiente</option>
+              <option value="En Proceso">En Proceso</option>
+              <option value="Completado">Completado</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Descripción del Requerimiento / Fallo *</label>
+          <textarea id="form-order-desc" required rows="3" placeholder="Detalle qué cámaras fallan, modelo de panel de alarma o requerimiento de instalación nueva..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-brand-500"></textarea>
+        </div>
+
+        <div class="border-t border-slate-800 pt-3">
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Notas del trabajo / repuestos utilizados</label>
+          <textarea id="form-order-tech-notes" rows="2" placeholder="Ej. Se reemplazaron 2 baluns pasivos y fuente de 12V 5A..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-brand-500"></textarea>
+        </div>
+
+        <div class="pt-4 flex justify-end space-x-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('new-order-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-semibold transition">Guardar Orden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<div id="toast" class="fixed bottom-5 right-5 z-50 bg-brand-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-lg"></i>
+    <span id="toast-message" class="text-sm font-medium">Operación realizada con éxito</span>
+  </div>
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<script src="js/cloud-sync.js"></script>
+<script src="js/core.js"></script>
+  <script src="js/orders.js"></script>
+<script>
+  document.querySelectorAll('[data-nav="orders"]').forEach(button => button.classList.add('text-brand-500','bg-slate-800/80'));
+  if (document.body.dataset.page === 'orders' && new URLSearchParams(location.search).has('client')) {
+    const search = document.getElementById('order-search');
+    if (search) { search.value = new URLSearchParams(location.search).get('client'); renderOrders(); }
+  }
+</script>
+</body></html>
