@@ -1,12 +1,245 @@
     // ================= 4. QUICK QUOTE CALCULATOR LOGIC =================
     let quoteBrandLogoPreview = '';
+    let editingBaseKitId = null;
+    let baseKitDraftItems = [];
+    let quoteKitSnapshot = null;
+
+    function getBaseKitItemPrice(item) {
+      if (item.sourcePrice !== undefined) {
+        return getInventoryPriceInPesos({ price: item.sourcePrice, priceCurrency: item.priceCurrency || 'ARS' });
+      }
+      if (item.priceCurrency === 'USD') {
+        return getInventoryPriceInPesos({ price: item.unitPrice, priceCurrency: 'USD' });
+      }
+      return Number(item.unitPrice) || 0;
+    }
+
+    function getBaseKitPrice(kit) {
+      const items = Array.isArray(kit?.items) ? kit.items : [];
+      if (items.some(item => getBaseKitItemPrice(item) === null)) return null;
+      return items.reduce((total, item) => total + (Number(item.quantity) || 0) * getBaseKitItemPrice(item), 0);
+    }
+
+    function formatBaseKitPrice(price) {
+      return price === null ? 'Cotización pendiente' : `$${price.toLocaleString('es-AR')}`;
+    }
+
+    function getQuoteInventoryItemPrice(item) {
+      return item.sourcePrice !== undefined
+        ? getInventoryPriceInPesos({ price: item.sourcePrice, priceCurrency: item.priceCurrency || 'ARS' })
+        : Number(item.unitPrice) || 0;
+    }
+
+    function getSelectedBaseKit() {
+      const selectedId = document.querySelector('input[name="base-kit"]:checked')?.value || 'none';
+      if (selectedId === 'none') return null;
+      if (quoteKitSnapshot && quoteKitSnapshot.id === selectedId) return quoteKitSnapshot;
+      return quoteKits.find(kit => kit.id === selectedId) || null;
+    }
+
+    function renderQuoteKits(selectedId = document.querySelector('input[name="base-kit"]:checked')?.value || 'cctv_4', snapshot = quoteKitSnapshot) {
+      const container = document.getElementById('quote-base-kits');
+      if (!container) return;
+      const kitsToShow = quoteKits.map(kit => snapshot && snapshot.id === kit.id ? snapshot : kit);
+      if (snapshot && snapshot.id && !kitsToShow.some(kit => kit.id === snapshot.id)) kitsToShow.push(snapshot);
+      const selectedKitId = kitsToShow.some(kit => kit.id === selectedId) ? selectedId : 'none';
+
+      container.innerHTML = `
+        <div class="relative rounded-xl border border-slate-800 bg-slate-950 ${selectedKitId === 'none' ? 'ring-1 ring-brand-500 bg-brand-500/10' : ''}">
+          <input id="base-kit-none" type="radio" name="base-kit" value="none" ${selectedKitId === 'none' ? 'checked' : ''} class="peer sr-only">
+          <label for="base-kit-none" class="block cursor-pointer p-3 pr-10 text-center">
+            <i class="fa-solid fa-ban text-slate-400 text-lg mb-1 block"></i>
+            <span class="text-xs font-bold block text-white">Sin kit base</span>
+            <span class="text-xs text-slate-400 font-medium">$0</span>
+          </label>
+        </div>
+        ${kitsToShow.map(kit => {
+          const isSnapshotOnly = !quoteKits.some(entry => entry.id === kit.id);
+          const selected = kit.id === selectedKitId;
+          return `
+            <div class="relative rounded-xl border border-slate-800 bg-slate-950 ${selected ? 'ring-1 ring-brand-500 bg-brand-500/10' : ''}">
+              <input id="base-kit-${escapeHtml(kit.id)}" type="radio" name="base-kit" value="${escapeHtml(kit.id)}" ${selected ? 'checked' : ''} class="peer sr-only">
+              <label for="base-kit-${escapeHtml(kit.id)}" class="block cursor-pointer p-3 pr-20 text-center">
+                <i class="fa-solid fa-video text-brand-400 text-lg mb-1 block"></i>
+                <span class="text-xs font-bold block text-white">${escapeHtml(kit.name)}</span>
+                <span class="text-xs text-slate-400 font-medium">${formatBaseKitPrice(getBaseKitPrice(kit))}</span>
+              </label>
+              ${isSnapshotOnly
+                ? '<span class="absolute right-2 top-2 text-[10px] text-slate-500">Guardado</span>'
+                : `<div class="absolute right-2 top-2 flex gap-1">
+                    <button type="button" data-edit-kit="${escapeHtml(kit.id)}" aria-label="Editar ${escapeHtml(kit.name)}" title="Editar kit" class="p-1 text-slate-400 hover:text-brand-400"><i class="fa-solid fa-pen"></i></button>
+                    <button type="button" data-delete-kit="${escapeHtml(kit.id)}" aria-label="Eliminar ${escapeHtml(kit.name)}" title="Eliminar kit" class="p-1 text-slate-400 hover:text-rose-400"><i class="fa-solid fa-trash-can"></i></button>
+                  </div>`}
+            </div>
+          `;
+        }).join('')}
+      `;
+      container.querySelectorAll('input[name="base-kit"]').forEach(input => {
+        input.addEventListener('change', () => {
+          if (!quoteKitSnapshot || quoteKitSnapshot.id !== input.value) quoteKitSnapshot = null;
+          renderQuoteKits(input.value, quoteKitSnapshot);
+          calculateQuote();
+        });
+      });
+      container.querySelectorAll('[data-edit-kit]').forEach(button => {
+        button.addEventListener('click', () => openBaseKitEditor(button.dataset.editKit));
+      });
+      container.querySelectorAll('[data-delete-kit]').forEach(button => {
+        button.addEventListener('click', () => deleteBaseKit(button.dataset.deleteKit));
+      });
+    }
+
+    function populateBaseKitInventoryOptions() {
+      const select = document.getElementById('base-kit-inventory-select');
+      select.innerHTML = inventory.map(item => `
+        <option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.category)} · ${formatInventoryPriceARS(item)}</option>
+      `).join('');
+      select.disabled = inventory.length === 0;
+      document.getElementById('base-kit-inventory-quantity').disabled = inventory.length === 0;
+      select.parentElement.querySelector('button').disabled = inventory.length === 0;
+    }
+
+    function openBaseKitEditor(id = '') {
+      const kit = quoteKits.find(entry => entry.id === id);
+      if (id && !kit) {
+        showToast('No se encontró el kit para editar', false);
+        return;
+      }
+      editingBaseKitId = kit ? kit.id : null;
+      baseKitDraftItems = kit ? kit.items.map(item => ({ ...item })) : [];
+      document.getElementById('base-kit-form').reset();
+      document.getElementById('base-kit-name').value = kit ? kit.name : '';
+      document.getElementById('base-kit-modal-title').textContent = kit ? 'Editar kit base' : 'Nuevo kit base';
+      document.getElementById('base-kit-custom-name').value = '';
+      document.getElementById('base-kit-custom-price').value = '';
+      document.getElementById('base-kit-inventory-quantity').value = '1';
+      populateBaseKitInventoryOptions();
+      renderBaseKitDraft();
+      openModal('base-kit-modal');
+    }
+
+    function closeBaseKitEditor() {
+      closeModal('base-kit-modal');
+      editingBaseKitId = null;
+      baseKitDraftItems = [];
+    }
+
+    function renderBaseKitDraft() {
+      document.getElementById('base-kit-components').innerHTML = baseKitDraftItems.map((item, index) => {
+        const unitPrice = getBaseKitItemPrice(item);
+        const linePrice = unitPrice === null ? null : item.quantity * unitPrice;
+        return `
+          <div class="flex items-center justify-between gap-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+            <span class="min-w-0 text-slate-300">${escapeHtml(item.description)} <span class="text-slate-500">(${item.quantity} × ${formatBaseKitPrice(unitPrice)})</span></span>
+            <span class="shrink-0 font-semibold text-white">${formatBaseKitPrice(linePrice)}</span>
+            <button type="button" data-remove-kit-item="${index}" aria-label="Quitar ${escapeHtml(item.description)}" class="shrink-0 text-slate-500 hover:text-rose-400"><i class="fa-solid fa-trash-can"></i></button>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('base-kit-total').textContent = formatBaseKitPrice(getBaseKitPrice({ items: baseKitDraftItems }));
+      document.querySelectorAll('[data-remove-kit-item]').forEach(button => {
+        button.addEventListener('click', () => {
+          baseKitDraftItems.splice(Number(button.dataset.removeKitItem), 1);
+          renderBaseKitDraft();
+        });
+      });
+    }
+
+    function addInventoryItemToBaseKit() {
+      const item = inventory.find(entry => entry.id === document.getElementById('base-kit-inventory-select').value);
+      const quantity = Number(document.getElementById('base-kit-inventory-quantity').value);
+      if (!item || !Number.isInteger(quantity) || quantity < 1) {
+        showToast('Elegí un artículo del inventario y una cantidad válida', false);
+        return;
+      }
+      const unitPrice = getInventoryPriceInPesos(item);
+      if (unitPrice === null) {
+        showToast('Cargá una cotización del dólar válida antes de agregar este artículo al kit', false);
+        return;
+      }
+      const existing = baseKitDraftItems.find(entry => entry.inventoryId === item.id);
+      if (existing) existing.quantity += quantity;
+      else baseKitDraftItems.push({
+        inventoryId: item.id,
+        description: item.name,
+        category: item.category,
+        quantity,
+        unitPrice,
+        sourcePrice: Number(item.price),
+        priceCurrency: item.priceCurrency || 'ARS'
+      });
+      document.getElementById('base-kit-inventory-quantity').value = '1';
+      renderBaseKitDraft();
+    }
+
+    function addCustomItemToBaseKit() {
+      const nameInput = document.getElementById('base-kit-custom-name');
+      const priceInput = document.getElementById('base-kit-custom-price');
+      const description = nameInput.value.trim();
+      const unitPrice = Number(priceInput.value);
+      if (!description || !Number.isFinite(unitPrice) || unitPrice < 0) {
+        showToast('Ingresá el nombre y un precio válido para el componente', false);
+        return;
+      }
+      baseKitDraftItems.push({ inventoryId: '', description, category: 'Personalizado', quantity: 1, unitPrice });
+      nameInput.value = '';
+      priceInput.value = '';
+      renderBaseKitDraft();
+    }
+
+    function saveBaseKit(event) {
+      event.preventDefault();
+      const name = document.getElementById('base-kit-name').value.trim();
+      if (!name) {
+        showToast('Ingresá el nombre del kit', false);
+        return;
+      }
+      if (quoteKits.some(kit => kit.id !== editingBaseKitId && kit.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+        showToast('Ya existe un kit con ese nombre', false);
+        return;
+      }
+      const id = editingBaseKitId || `kit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const kit = { id, name, items: baseKitDraftItems.map(item => ({ ...item })) };
+      const index = quoteKits.findIndex(entry => entry.id === id);
+      if (index >= 0) quoteKits[index] = kit;
+      else quoteKits.push(kit);
+      saveData('quoteKits', quoteKits);
+      quoteKitSnapshot = quoteKitSnapshot && quoteKitSnapshot.id === id
+        ? { ...kit, items: kit.items.map(item => ({ ...item })) }
+        : null;
+      closeBaseKitEditor();
+      renderQuoteKits(id, quoteKitSnapshot);
+      calculateQuote();
+      showToast('Kit guardado');
+    }
+
+    function deleteBaseKit(id) {
+      const kit = quoteKits.find(entry => entry.id === id);
+      if (!kit || !confirm(`¿Eliminar el kit "${kit.name}"?`)) return;
+      const selectedId = document.querySelector('input[name="base-kit"]:checked')?.value;
+      quoteKits = quoteKits.filter(entry => entry.id !== id);
+      saveData('quoteKits', quoteKits);
+      const preserveSnapshot = quoteKitSnapshot && quoteKitSnapshot.id === id;
+      if (!preserveSnapshot) quoteKitSnapshot = null;
+      renderQuoteKits(selectedId === id && !preserveSnapshot ? 'none' : selectedId, quoteKitSnapshot);
+      calculateQuote();
+      showToast('Kit eliminado');
+    }
 
     function initializeQuoteBranding() {
       document.getElementById('branding-business-name').value = quoteBranding.businessName;
       document.getElementById('branding-tagline').value = quoteBranding.tagline;
       document.getElementById('branding-phone').value = quoteBranding.phone;
+      document.getElementById('branding-mobile').value = quoteBranding.mobile || '';
       document.getElementById('branding-email').value = quoteBranding.email;
       document.getElementById('branding-address').value = quoteBranding.address;
+      document.getElementById('branding-locality').value = quoteBranding.locality || '';
+      document.getElementById('branding-province').value = quoteBranding.province || '';
+      document.getElementById('branding-postal-code').value = quoteBranding.postalCode || '';
+      document.getElementById('branding-tax-id').value = quoteBranding.taxId || '';
+      document.getElementById('branding-tax-condition').value = quoteBranding.taxCondition || '';
+      document.getElementById('branding-gross-income').value = quoteBranding.grossIncome || '';
+      document.getElementById('branding-activity-start').value = quoteBranding.activityStart || '';
       document.getElementById('branding-color').value = quoteBranding.color;
       document.getElementById('branding-theme').value = quoteBranding.theme;
       quoteBrandLogoPreview = quoteBranding.logo;
@@ -16,12 +249,16 @@
     function previewQuoteBranding() {
       const businessName = document.getElementById('branding-business-name').value.trim() || 'Leyra Seguridad';
       const tagline = document.getElementById('branding-tagline').value.trim();
-      const contacts = [
-        document.getElementById('branding-phone').value.trim(),
-        document.getElementById('branding-email').value.trim(),
-        document.getElementById('branding-address').value.trim()
-      ].filter(Boolean);
-      const color = document.getElementById('branding-color').value || '#0369a1';
+      const location = [
+        document.getElementById('branding-locality').value.trim(),
+        document.getElementById('branding-province').value.trim()
+          ? `Pcia. ${document.getElementById('branding-province').value.trim()}`
+          : '',
+        document.getElementById('branding-postal-code').value.trim()
+          ? `CP ${document.getElementById('branding-postal-code').value.trim()}`
+          : ''
+      ].filter(Boolean).join(' · ');
+      const color = document.getElementById('branding-color').value || '#E53935';
       const theme = document.getElementById('branding-theme').value;
       const preview = document.getElementById('print-area');
       const logo = document.getElementById('summary-brand-logo');
@@ -29,14 +266,27 @@
       document.getElementById('summary-brand-name').textContent = businessName;
       document.getElementById('summary-brand-tagline').textContent = tagline;
       document.getElementById('summary-brand-tagline').classList.toggle('hidden', !tagline);
-      document.getElementById('summary-brand-contact').textContent = contacts.join(' · ');
-      document.getElementById('summary-brand-contact').classList.toggle('hidden', contacts.length === 0);
+      setQuoteSummaryField('summary-brand-address', 'Domicilio', document.getElementById('branding-address').value.trim());
+      setQuoteSummaryField('summary-brand-location', '', location);
+      setQuoteSummaryField('summary-brand-phone', 'Tel.', document.getElementById('branding-phone').value.trim());
+      setQuoteSummaryField('summary-brand-mobile', 'Cel.', document.getElementById('branding-mobile').value.trim());
+      setQuoteSummaryField('summary-brand-email', '', document.getElementById('branding-email').value.trim());
+      setQuoteSummaryField('summary-brand-tax-id', 'CUIT', document.getElementById('branding-tax-id').value.trim());
+      setQuoteSummaryField('summary-brand-tax-condition', 'IVA', document.getElementById('branding-tax-condition').value.trim());
+      setQuoteSummaryField('summary-brand-gross-income', 'Ing. Brutos', document.getElementById('branding-gross-income').value.trim());
+      setQuoteSummaryField('summary-brand-activity-start', 'Inicio', document.getElementById('branding-activity-start').value.trim());
       logo.alt = `Logo de ${businessName}`;
       logo.classList.toggle('hidden', !quoteBrandLogoPreview);
       if (quoteBrandLogoPreview) logo.src = quoteBrandLogoPreview;
       preview.dataset.quoteTheme = ['classic', 'modern', 'minimal'].includes(theme) ? theme : 'classic';
       preview.style.setProperty('--quote-brand-color', color);
       document.getElementById('summary-total-price').style.color = color;
+    }
+
+    function setQuoteSummaryField(id, label, value) {
+      const element = document.getElementById(id);
+      element.textContent = value ? (label ? `${label}: ${value}` : value) : '';
+      element.classList.toggle('hidden', !value);
     }
 
     function handleQuoteBrandLogo(event) {
@@ -76,8 +326,16 @@
         businessName: document.getElementById('branding-business-name').value.trim(),
         tagline: document.getElementById('branding-tagline').value.trim(),
         phone: document.getElementById('branding-phone').value.trim(),
+        mobile: document.getElementById('branding-mobile').value.trim(),
         email: document.getElementById('branding-email').value.trim(),
         address: document.getElementById('branding-address').value.trim(),
+        postalCode: document.getElementById('branding-postal-code').value.trim(),
+        locality: document.getElementById('branding-locality').value.trim(),
+        province: document.getElementById('branding-province').value.trim(),
+        taxId: document.getElementById('branding-tax-id').value.trim(),
+        taxCondition: document.getElementById('branding-tax-condition').value.trim(),
+        grossIncome: document.getElementById('branding-gross-income').value.trim(),
+        activityStart: document.getElementById('branding-activity-start').value.trim(),
         logo: quoteBrandLogoPreview,
         color: document.getElementById('branding-color').value,
         theme: document.getElementById('branding-theme').value
@@ -152,7 +410,14 @@
       if (!client) return;
       document.getElementById('quote-client-name').value = client.name;
       document.getElementById('quote-client-phone').value = client.phone || '';
+      document.getElementById('quote-client-number').value = client.clientNumber || '';
+      document.getElementById('quote-client-tax-id').value = client.taxId || '';
       document.getElementById('quote-client-address').value = client.address || '';
+      document.getElementById('quote-client-locality').value = client.locality || '';
+      document.getElementById('quote-client-province').value = client.province || '';
+      document.getElementById('quote-client-postal-code').value = client.postalCode || '';
+      document.getElementById('quote-client-contact').value = client.contact || client.contactName || '';
+      document.getElementById('quote-client-tax-condition').value = client.taxCondition || client.iva || '';
       const propertyType = client.type === 'Casa Particular' ? 'Residencial / Casa'
         : client.type === 'Empresa / Depósito' ? 'Depósito / Industria'
         : client.type === 'Edificio' ? 'Edificio / Consorcio'
@@ -226,7 +491,7 @@
 
       const availableItems = getInventoryItemsForQuote();
       select.innerHTML = availableItems.map(item => `
-        <option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.category)} · $${Number(item.price).toLocaleString('es-AR')}</option>
+        <option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.category)} · ${formatInventoryPriceARS(item)}</option>
       `).join('');
       select.disabled = availableItems.length === 0;
       document.getElementById('quote-inventory-quantity').disabled = availableItems.length === 0;
@@ -248,63 +513,68 @@
       const includesCameras = service === 'cctv';
 
       // Base Kit
-      const selectedKit = document.querySelector('input[name="base-kit"]:checked').value;
-      let kitName = includesCameras ? 'Kit 4 Cámaras 1080p' : 'Sin kit base';
-      let kitPrice = includesCameras ? 180000 : 0;
-
-      if (selectedKit === 'cctv_8') {
-        kitName = includesCameras ? 'Kit 8 Cámaras 4K Hikvision' : 'Sin kit base';
-        kitPrice = includesCameras ? 340000 : 0;
-      }
+      const selectedKit = getSelectedBaseKit();
+      const kitPrice = includesCameras && selectedKit ? getBaseKitPrice(selectedKit) || 0 : 0;
 
       const laborHours = Number(document.getElementById('quote-labor-hours').value) || 0;
       const laborRate = Number(document.getElementById('quote-labor-rate').value) || 0;
       const laborPrice = laborHours * laborRate;
-      const inventoryItemsTotal = quoteInventoryItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const inventoryItemsTotal = quoteInventoryItems.reduce((sum, item) => sum + item.quantity * (getQuoteInventoryItemPrice(item) || 0), 0);
       const suppliesSubtotal = kitPrice + inventoryItemsTotal + quoteExtraItems.reduce((sum, item) => sum + item.price, 0);
       const requestedDiscount = Number(document.getElementById('quote-discount').value) || 0;
       const discount = Math.min(requestedDiscount, quoteDocumentMode === 'final' ? suppliesSubtotal + laborPrice : suppliesSubtotal);
       const suppliesTotal = Math.max(0, suppliesSubtotal - Math.min(requestedDiscount, suppliesSubtotal));
       const finalTotal = Math.max(0, suppliesSubtotal + laborPrice - Math.min(requestedDiscount, suppliesSubtotal + laborPrice));
       const total = quoteDocumentMode === 'final' ? finalTotal : suppliesTotal;
+      const quoteLines = [
+        ...(includesCameras && selectedKit ? selectedKit.items.map(item => ({ ...item, unitPrice: getBaseKitItemPrice(item) || 0 })) : []),
+        ...quoteInventoryItems.map(item => ({ ...item, unitPrice: getQuoteInventoryItemPrice(item) || 0 })),
+        ...quoteExtraItems.map(item => ({ code: '', description: item.description, quantity: 1, unitPrice: item.price })),
+        ...(quoteDocumentMode === 'final' && laborPrice > 0
+          ? [{ code: '', description: 'Mano de obra', quantity: laborHours, unitPrice: laborRate }]
+          : [])
+      ];
 
       // Update UI elements
       document.getElementById('summary-client-name').innerText = clientName;
-      document.getElementById('summary-client-phone').innerText = clientPhone ? `Tel.: ${clientPhone}` : '';
-      document.getElementById('summary-client-address').innerText = clientAddress;
+      setQuoteSummaryField('summary-client-number', 'Nº cliente', document.getElementById('quote-client-number').value.trim());
+      setQuoteSummaryField('summary-client-tax-id', 'CUIT', document.getElementById('quote-client-tax-id').value.trim());
+      setQuoteSummaryField('summary-client-address', 'Dirección', clientAddress);
+      setQuoteSummaryField('summary-client-locality', 'Localidad', document.getElementById('quote-client-locality').value.trim());
+      setQuoteSummaryField('summary-client-province', 'Provincia', document.getElementById('quote-client-province').value.trim());
+      setQuoteSummaryField('summary-client-postal-code', 'C.P.', document.getElementById('quote-client-postal-code').value.trim());
+      setQuoteSummaryField('summary-client-contact', 'Contacto', document.getElementById('quote-client-contact').value.trim());
+      setQuoteSummaryField('summary-client-tax-condition', 'IVA', document.getElementById('quote-client-tax-condition').value.trim());
+      setQuoteSummaryField('summary-client-phone', 'Tel.', clientPhone);
       document.getElementById('summary-property-type').innerText = propertyType;
       document.getElementById('summary-service-type').innerText = serviceType;
       
-      document.getElementById('summary-kit-name').innerText = kitName;
-      document.getElementById('summary-kit-price').innerText = `$${kitPrice.toLocaleString('es-AR')}`;
-      document.getElementById('summary-labor-price').innerText = `$${laborPrice.toLocaleString('es-AR')}`;
       document.getElementById('quote-labor-internal-total').innerText = `$${laborPrice.toLocaleString('es-AR')}`;
-      document.getElementById('summary-kit-row').classList.toggle('hidden', !includesCameras);
-      document.getElementById('summary-labor-row').classList.toggle('hidden', quoteDocumentMode !== 'final' || laborPrice <= 0);
-      document.getElementById('summary-extra-items').innerHTML = [
-        ...quoteInventoryItems.map(item => `
-          <div class="flex justify-between py-1 border-b border-slate-800/60">
-            <span class="text-slate-400">${escapeHtml(item.description)} (${item.quantity} u.)</span>
-            <span class="font-semibold text-slate-200">$${(item.quantity * item.unitPrice).toLocaleString('es-AR')}</span>
-          </div>
-        `),
-        ...quoteExtraItems.map(item => `
-        <div class="flex justify-between py-1 border-b border-slate-800/60">
-          <span class="text-slate-400">${escapeHtml(item.description)}</span>
-          <span class="font-semibold text-slate-200">$${item.price.toLocaleString('es-AR')}</span>
-        </div>
-        `)
-      ].join('');
+      document.getElementById('summary-item-rows').innerHTML = quoteLines.map(item => {
+        const quantity = Number(item.quantity) || 0;
+        const unitPrice = Number(item.unitPrice) || 0;
+        return `
+          <tr>
+            <td>${escapeHtml(item.code || '0')}</td>
+            <td>${escapeHtml(item.description)}</td>
+            <td class="text-right">${quantity.toLocaleString('es-AR')}</td>
+            <td class="text-right">$ ${unitPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+            <td class="text-right">$ ${(quantity * unitPrice).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+          </tr>
+        `;
+      }).join('');
+      const displayedSubtotal = quoteDocumentMode === 'final' ? suppliesSubtotal + laborPrice : suppliesSubtotal;
+      document.getElementById('summary-subtotal-price').innerText = `$ ${displayedSubtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       document.getElementById('summary-notes').innerText = document.getElementById('quote-notes').value;
 
-      document.getElementById('summary-total-price').innerText = `$${total.toLocaleString('es-AR')}`;
-      document.getElementById('quote-number-display').innerText = activeQuoteId || 'BORRADOR';
-      document.getElementById('summary-document-title').innerText = quoteDocumentMode === 'final' ? 'Factura final' : 'Presupuesto de Insumos';
+      document.getElementById('summary-total-price').innerText = `$ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      document.getElementById('quote-number-display').innerText = `Nº ${activeQuoteId || 'BORRADOR'}`;
+      document.getElementById('summary-document-title').innerText = quoteDocumentMode === 'final' ? 'Factura' : 'Presupuesto';
       document.getElementById('summary-document-badge').innerText = quoteDocumentMode === 'final' ? 'Final' : 'Insumos';
-      document.getElementById('summary-total-label').innerText = quoteDocumentMode === 'final' ? 'Total final' : 'Total de insumos';
+      document.getElementById('summary-total-label').innerText = 'Total:';
       document.getElementById('summary-validity').classList.toggle('hidden', quoteDocumentMode === 'final');
       document.getElementById('summary-discount-row').classList.toggle('hidden', discount <= 0);
-      if (discount > 0) document.getElementById('summary-discount-price').innerText = `-$${discount.toLocaleString('es-AR')}`;
+      if (discount > 0) document.getElementById('summary-discount-price').innerText = `-$ ${discount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       if (!activeQuoteId) {
         document.getElementById('quote-date-display').innerText = `Fecha: ${new Date().toLocaleDateString('es-AR')}`;
       }
@@ -319,7 +589,8 @@
       quoteDocumentMode = 'estimate';
       document.getElementById('quote-labor-hours').value = '0';
       document.getElementById('quote-labor-rate').value = '0';
-      document.querySelector('input[name="base-kit"][value="cctv_4"]').checked = true;
+      quoteKitSnapshot = null;
+      renderQuoteKits('cctv_4');
       updateQuoteInventoryOptions();
       renderQuoteInventoryItems();
       renderQuoteExtraItems();
@@ -358,13 +629,16 @@
 
     function renderQuoteInventoryItems() {
       const list = document.getElementById('quote-inventory-items');
-      list.innerHTML = quoteInventoryItems.map((item, index) => `
-        <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs">
-          <span class="text-slate-300">${escapeHtml(item.description)} <span class="text-slate-500">(${item.quantity} × $${item.unitPrice.toLocaleString('es-AR')})</span></span>
-          <span class="font-semibold text-white">$${(item.quantity * item.unitPrice).toLocaleString('es-AR')}</span>
-          <button type="button" onclick="removeInventoryQuoteItem(${index})" class="text-slate-500 hover:text-rose-400" aria-label="Quitar ${escapeHtml(item.description)}"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-      `).join('');
+      list.innerHTML = quoteInventoryItems.map((item, index) => {
+        const unitPrice = getQuoteInventoryItemPrice(item) || 0;
+        return `
+          <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+            <span class="text-slate-300">${escapeHtml(item.description)} <span class="text-slate-500">(${item.quantity} × $${unitPrice.toLocaleString('es-AR')})</span></span>
+            <span class="font-semibold text-white">$${(item.quantity * unitPrice).toLocaleString('es-AR')}</span>
+            <button type="button" onclick="removeInventoryQuoteItem(${index})" class="text-slate-500 hover:text-rose-400" aria-label="Quitar ${escapeHtml(item.description)}"><i class="fa-solid fa-trash-can"></i></button>
+          </div>
+        `;
+      }).join('');
       calculateQuote();
     }
 
@@ -375,6 +649,11 @@
         showToast('Elegí un artículo del inventario y una cantidad válida', false);
         return;
       }
+      const unitPrice = getInventoryPriceInPesos(item);
+      if (unitPrice === null) {
+        showToast('Cargá una cotización del dólar válida antes de agregar este artículo al presupuesto', false);
+        return;
+      }
       const existing = quoteInventoryItems.find(entry => entry.inventoryId === item.id);
       if (existing) existing.quantity += quantity;
       else quoteInventoryItems.push({
@@ -382,7 +661,9 @@
         description: item.name,
         category: item.category,
         quantity,
-        unitPrice: Number(item.price) || 0
+        unitPrice,
+        sourcePrice: Number(item.price),
+        priceCurrency: item.priceCurrency || 'ARS'
       });
       document.getElementById('quote-inventory-quantity').value = '1';
       renderQuoteInventoryItems();
@@ -418,11 +699,24 @@
         clientId: document.getElementById('quote-client-select').value,
         clientName: document.getElementById('quote-client-name').value.trim(),
         clientPhone: document.getElementById('quote-client-phone').value.trim(),
+        clientNumber: document.getElementById('quote-client-number').value.trim(),
+        clientTaxId: document.getElementById('quote-client-tax-id').value.trim(),
         clientAddress: document.getElementById('quote-client-address').value.trim(),
+        clientLocality: document.getElementById('quote-client-locality').value.trim(),
+        clientProvince: document.getElementById('quote-client-province').value.trim(),
+        clientPostalCode: document.getElementById('quote-client-postal-code').value.trim(),
+        clientContact: document.getElementById('quote-client-contact').value.trim(),
+        clientTaxCondition: document.getElementById('quote-client-tax-condition').value.trim(),
         propertyType: document.getElementById('quote-property-type').value,
         serviceType: document.getElementById('quote-service-type').value,
-        kit: document.querySelector('input[name="base-kit"]:checked').value,
-        inventoryItems: quoteInventoryItems.map(item => ({ ...item })),
+        kit: document.querySelector('input[name="base-kit"]:checked')?.value || 'none',
+        inventoryItems: quoteInventoryItems.map(item => {
+          const savedItem = { ...item };
+          delete savedItem.sourcePrice;
+          delete savedItem.priceCurrency;
+          savedItem.unitPrice = getQuoteInventoryItemPrice(item) || 0;
+          return savedItem;
+        }),
         laborHours: Number(document.getElementById('quote-labor-hours').value) || 0,
         laborHourlyRate: Number(document.getElementById('quote-labor-rate').value) || 0,
         discount: Number(document.getElementById('quote-discount').value) || 0,
@@ -438,9 +732,25 @@
         document.getElementById('quote-client-name').focus();
         return;
       }
+      const selectedKit = getSelectedBaseKit();
+      if (getQuoteService() === 'cctv' && selectedKit && getBaseKitPrice(selectedKit) === null) {
+        showToast('Cargá una cotización del dólar válida antes de guardar el presupuesto', false);
+        return;
+      }
+      const savedKitItems = selectedKit?.items.map(item => {
+        const unitPrice = getBaseKitItemPrice(item);
+        if (unitPrice === null) return { ...item };
+        const savedItem = { ...item, unitPrice };
+        delete savedItem.sourcePrice;
+        delete savedItem.priceCurrency;
+        return savedItem;
+      }) || [];
       const id = activeQuoteId || `PRE-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
       const quote = {
         ...formData,
+        kitName: selectedKit?.name || '',
+        kitPrice: selectedKit ? getBaseKitPrice(selectedKit) || 0 : 0,
+        kitItems: savedKitItems,
         id,
         date: new Date().toISOString(),
         total: calculateQuoteTotals().suppliesTotal
@@ -450,6 +760,10 @@
       else quotes.unshift(quote);
       activeQuoteId = id;
       saveData('quotes', quotes);
+      quoteInventoryItems = formData.inventoryItems.map(item => ({ ...item }));
+      quoteKitSnapshot = selectedKit ? { ...selectedKit, items: savedKitItems.map(item => ({ ...item })) } : null;
+      renderQuoteKits(selectedKit?.id || 'none', quoteKitSnapshot);
+      renderQuoteInventoryItems();
       calculateQuote();
       renderQuotes();
       showToast(`Presupuesto ${id} guardado`);
@@ -494,11 +808,18 @@
       document.getElementById('quote-client-select').value = quote.clientId || '';
       document.getElementById('quote-client-name').value = quote.clientName;
       document.getElementById('quote-client-phone').value = quote.clientPhone || '';
+      document.getElementById('quote-client-number').value = quote.clientNumber || '';
+      document.getElementById('quote-client-tax-id').value = quote.clientTaxId || '';
       document.getElementById('quote-client-address').value = quote.clientAddress || '';
+      document.getElementById('quote-client-locality').value = quote.clientLocality || '';
+      document.getElementById('quote-client-province').value = quote.clientProvince || '';
+      document.getElementById('quote-client-postal-code').value = quote.clientPostalCode || '';
+      document.getElementById('quote-client-contact').value = quote.clientContact || '';
+      document.getElementById('quote-client-tax-condition').value = quote.clientTaxCondition || '';
       document.getElementById('quote-property-type').value = quote.propertyType;
       document.getElementById('quote-service-type').value = quote.serviceType;
-      const kit = document.querySelector(`input[name="base-kit"][value="${quote.kit}"]`);
-      if (kit) kit.checked = true;
+      quoteKitSnapshot = getQuoteKitSnapshot(quote);
+      renderQuoteKits(quote.kit || 'none', quoteKitSnapshot);
       updateQuoteInventoryOptions();
       quoteInventoryItems = getSavedQuoteInventoryItems(quote);
       document.getElementById('quote-labor-hours').value = quote.laborHours === undefined ? '1' : quote.laborHours;
@@ -535,13 +856,29 @@
       return items;
     }
 
+    function getQuoteKitSnapshot(quote) {
+      if (!quote.kit || quote.kit === 'none') return null;
+      if (Array.isArray(quote.kitItems)) {
+        return { id: quote.kit, name: quote.kitName || 'Kit Base', items: quote.kitItems.map(item => ({ ...item })) };
+      }
+      if (!['cctv_4', 'cctv_8'].includes(quote.kit)) return null;
+      const legacyKit = quote.kit === 'cctv_8'
+        ? { name: 'Kit 8 Cámaras 4K Hikvision', price: 340000 }
+        : { name: 'Kit 4 Cámaras 1080p', price: 180000 };
+      return {
+        id: quote.kit,
+        name: legacyKit.name,
+        items: [{ inventoryId: '', description: legacyKit.name, category: 'Kit Base', quantity: 1, unitPrice: legacyKit.price }]
+      };
+    }
+
     function calculateQuoteTotals() {
       const includesCameras = getQuoteService() === 'cctv';
-      const kit = document.querySelector('input[name="base-kit"]:checked').value;
-      const kitPrice = !includesCameras ? 0 : kit === 'cctv_8' ? 340000 : 180000;
+      const selectedKit = getSelectedBaseKit();
+      const kitPrice = includesCameras && selectedKit ? getBaseKitPrice(selectedKit) || 0 : 0;
       const laborTotal = (Number(document.getElementById('quote-labor-hours').value) || 0) * (Number(document.getElementById('quote-labor-rate').value) || 0);
       const extraTotal = quoteExtraItems.reduce((sum, item) => sum + item.price, 0);
-      const inventoryTotal = quoteInventoryItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const inventoryTotal = quoteInventoryItems.reduce((sum, item) => sum + item.quantity * (getQuoteInventoryItemPrice(item) || 0), 0);
       const subtotal = kitPrice + inventoryTotal + extraTotal;
       const discount = Number(document.getElementById('quote-discount').value) || 0;
       return {
@@ -594,7 +931,9 @@
         status: 'Pendiente',
         desc: `${formData.serviceType}. Total presupuestado: ${document.getElementById('summary-total-price').innerText}`,
         techNotes: '',
-        date: new Date().toISOString().replace('T', ' ').substring(0, 16)
+        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        totalAmount: Math.round(calculateQuoteTotals().finalTotal * 100) / 100,
+        payments: []
       };
 
       orders.unshift(newOrder);

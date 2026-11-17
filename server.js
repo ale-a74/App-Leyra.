@@ -3,6 +3,8 @@ require('dotenv').config();
 const crypto = require('node:crypto');
 const http = require('node:http');
 const path = require('node:path');
+const { Readable } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
 const cors = require('cors');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
@@ -19,6 +21,7 @@ const SYNC_KEYS = new Set([
   'objects',
   'quotes',
   'quoteServices',
+  'quoteKits',
   'quoteBranding'
 ]);
 const MAX_VALUE_BYTES = 2 * 1024 * 1024;
@@ -98,7 +101,16 @@ function validateDataEntries(data, maxBytes) {
   return null;
 }
 
-function createApp({ db, appPassword, jwtSecret, allowedOrigins = [], getIo = () => null }) {
+function createApp({
+  db,
+  appPassword,
+  jwtSecret,
+  allowedOrigins = [],
+  getIo = () => null,
+  updateRepository = process.env.UPDATE_GITHUB_REPOSITORY,
+  updateToken = process.env.UPDATE_GITHUB_TOKEN,
+  fetchImplementation = fetch
+}) {
   const app = express();
   const corsOptions = {
     origin(origin, callback) {
@@ -117,6 +129,106 @@ function createApp({ db, appPassword, jwtSecret, allowedOrigins = [], getIo = ()
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(cors(corsOptions));
   app.use(express.json({ limit: '10mb' }));
+
+  let latestReleaseCache = null;
+  let latestReleaseCacheExpiresAt = 0;
+  async function getLatestUpdateRelease() {
+    if (!/^[\w.-]+\/[\w.-]+$/.test(updateRepository || '') || !updateToken) {
+      return null;
+    }
+    if (latestReleaseCache && Date.now() < latestReleaseCacheExpiresAt) return latestReleaseCache;
+
+    const response = await fetchImplementation(
+      `https://api.github.com/repos/${updateRepository}/releases/latest`,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${updateToken}`,
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    );
+    if (!response.ok) throw new Error(`GitHub Releases respondió ${response.status}.`);
+    const release = await response.json();
+    if (!Array.isArray(release.assets)) throw new Error('GitHub devolvió una publicación sin archivos válidos.');
+    latestReleaseCache = release;
+    latestReleaseCacheExpiresAt = Date.now() + 60_000;
+    return release;
+  }
+
+  async function proxyUpdateAsset(asset, req, res) {
+    const headers = {
+      Accept: 'application/octet-stream',
+      Authorization: `Bearer ${updateToken}`,
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+    if (req.get('range')) headers.Range = req.get('range');
+    const upstream = await fetchImplementation(asset.url, { headers });
+    if (upstream.status !== 200 && upstream.status !== 206) {
+      throw new Error(`GitHub no pudo descargar ${asset.name} (HTTP ${upstream.status}).`);
+    }
+
+    res.status(upstream.status);
+    for (const header of ['content-length', 'content-range', 'accept-ranges']) {
+      const value = upstream.headers.get(header);
+      if (value) res.setHeader(header, value);
+    }
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (!upstream.body) {
+      res.end();
+      return;
+    }
+    await pipeline(Readable.fromWeb(upstream.body), res);
+  }
+
+  const updateDownloadLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Se alcanzó el límite temporal de descargas de actualizaciones.' }
+  });
+  app.get('/updates/latest.yml', async (req, res, next) => {
+    try {
+      const release = await getLatestUpdateRelease();
+      if (!release) {
+        res.status(503).json({ error: 'El canal de actualizaciones todavía no está configurado.' });
+        return;
+      }
+      const metadata = release.assets.find(asset => asset.name === 'latest.yml');
+      if (!metadata) {
+        res.status(404).json({ error: 'La última publicación no contiene metadatos de actualización.' });
+        return;
+      }
+      await proxyUpdateAsset(metadata, req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get('/updates/:fileName', updateDownloadLimit, async (req, res, next) => {
+    try {
+      const { fileName } = req.params;
+      if (!/^[\w .()-]+\.(?:exe|blockmap)$/i.test(fileName) || fileName.includes('..')) {
+        res.status(404).json({ error: 'No se encontró el archivo de actualización.' });
+        return;
+      }
+      const release = await getLatestUpdateRelease();
+      if (!release) {
+        res.status(503).json({ error: 'El canal de actualizaciones todavía no está configurado.' });
+        return;
+      }
+      const asset = release.assets.find(item => item.name === fileName);
+      if (!asset) {
+        res.status(404).json({ error: 'No se encontró el archivo de actualización.' });
+        return;
+      }
+      await proxyUpdateAsset(asset, req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/api/health', async (req, res, next) => {
     try {
@@ -166,6 +278,11 @@ function createApp({ db, appPassword, jwtSecret, allowedOrigins = [], getIo = ()
       if (rows[0].count > 0) {
         await client.query('COMMIT');
         res.status(409).json({ error: 'La base ya contiene datos.', initialized: false });
+        return;
+      }
+      if (Object.keys(req.body.data).length === 0) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ error: 'No se recibieron datos para inicializar la base.' });
         return;
       }
 

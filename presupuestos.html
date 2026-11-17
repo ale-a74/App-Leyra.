@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
-  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{brand:{50:'#f0f7ff',100:'#e0effe',500:'#0284c7',600:'#0369a1',700:'#075985',800:'#0c4a6e',900:'#0f172a'},accent:{500:'#f59e0b',600:'#d97706'}}}}}</script>
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{slate:{50:'#FAFAFA',100:'#E0E0E0',200:'#E0E0E0',300:'#E0E0E0',400:'#A3A3A3',500:'#737373',600:'#525252',700:'#3A3A3A',800:'#3A3A3A',900:'#121212',950:'#121212'},brand:{50:'#FDE8E7',100:'#FBC9C7',500:'#E53935',600:'#D32F2F',700:'#B71C1C',800:'#8E1815',900:'#121212'},accent:{500:'#E0E0E0',600:'#3A3A3A'}}}}}</script>
 </head>
 <body data-page="quotes" class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col md:flex-row overflow-hidden">
 
@@ -54,8 +54,12 @@
               <input id="branding-tagline" type="text" maxlength="120" placeholder="Instalación y mantenimiento de seguridad electrónica" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
             </div>
             <div>
-              <label for="branding-phone" class="block text-xs font-medium text-slate-400 mb-1">Teléfono</label>
+              <label for="branding-phone" class="block text-xs font-medium text-slate-400 mb-1">Teléfono fijo</label>
               <input id="branding-phone" type="tel" maxlength="40" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-mobile" class="block text-xs font-medium text-slate-400 mb-1">Celular</label>
+              <input id="branding-mobile" type="tel" maxlength="40" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
             </div>
             <div>
               <label for="branding-email" class="block text-xs font-medium text-slate-400 mb-1">Correo electrónico</label>
@@ -64,6 +68,34 @@
             <div>
               <label for="branding-address" class="block text-xs font-medium text-slate-400 mb-1">Dirección</label>
               <input id="branding-address" type="text" maxlength="120" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-locality" class="block text-xs font-medium text-slate-400 mb-1">Localidad</label>
+              <input id="branding-locality" type="text" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-province" class="block text-xs font-medium text-slate-400 mb-1">Provincia</label>
+              <input id="branding-province" type="text" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-postal-code" class="block text-xs font-medium text-slate-400 mb-1">Código postal</label>
+              <input id="branding-postal-code" type="text" maxlength="12" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-tax-id" class="block text-xs font-medium text-slate-400 mb-1">CUIT</label>
+              <input id="branding-tax-id" type="text" maxlength="20" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-tax-condition" class="block text-xs font-medium text-slate-400 mb-1">Condición frente al IVA</label>
+              <input id="branding-tax-condition" type="text" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-gross-income" class="block text-xs font-medium text-slate-400 mb-1">Ingresos Brutos</label>
+              <input id="branding-gross-income" type="text" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+            </div>
+            <div>
+              <label for="branding-activity-start" class="block text-xs font-medium text-slate-400 mb-1">Inicio de actividades</label>
+              <input id="branding-activity-start" type="text" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
             </div>
             <div>
               <label for="branding-logo" class="block text-xs font-medium text-slate-400 mb-1">Logo (PNG, JPG o WebP; máx. 1 MB)</label>
@@ -107,6 +139,18 @@
               </button>
             </div>
 
+            <div class="no-print border border-slate-800 bg-slate-950/60 p-4 rounded-xl space-y-3">
+              <div>
+                <label for="quote-dollar-rate" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Dólar hoy (venta Banco Nación, ARS por USD)</label>
+                <p class="text-xs text-slate-500 mt-1">Los insumos en dólares se convierten usando únicamente la cotización de venta oficial del Banco Nación.</p>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                <input id="quote-dollar-rate" type="number" min="0.01" step="0.01" readonly placeholder="Consultando Banco Nación…" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                <button type="button" onclick="refreshDollarRateFromApi()" class="bg-slate-800 hover:bg-slate-700 text-white rounded-xl px-3 py-2 text-sm font-medium"><i class="fa-solid fa-rotate mr-1"></i>Consultar API</button>
+              </div>
+              <p id="dollar-rate-status" class="text-xs text-slate-400" aria-live="polite"></p>
+            </div>
+
             <form id="quote-form" onchange="calculateQuote()" oninput="calculateQuote()" class="space-y-5">
               <!-- Customer Info -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -125,8 +169,36 @@
                   <input type="tel" id="quote-client-phone" placeholder="+54 341..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
                 </div>
                 <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Nº de cliente</label>
+                  <input type="text" id="quote-client-number" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">CUIT</label>
+                  <input type="text" id="quote-client-tax-id" maxlength="20" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
                   <label class="block text-xs font-medium text-slate-400 mb-1">Dirección del servicio</label>
                   <input type="text" id="quote-client-address" placeholder="Dirección del inmueble / taller" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Localidad</label>
+                  <input type="text" id="quote-client-locality" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Provincia</label>
+                  <input type="text" id="quote-client-province" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Código postal</label>
+                  <input type="text" id="quote-client-postal-code" maxlength="12" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Contacto</label>
+                  <input type="text" id="quote-client-contact" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Condición frente al IVA</label>
+                  <input type="text" id="quote-client-tax-condition" maxlength="80" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-slate-400 mb-1">Tipo de Propiedad</label>
@@ -157,25 +229,12 @@
 
               <!-- Primary Kit Selection -->
               <div id="quote-cctv-options" class="space-y-3">
-                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">1. Kit Base de Seguridad</label>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label class="cursor-pointer">
-                    <input type="radio" name="base-kit" value="cctv_4" class="peer hidden" checked>
-                    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-center transition">
-                      <i class="fa-solid fa-video text-brand-400 text-lg mb-1 block"></i>
-                      <span class="text-xs font-bold block text-white">Kit 4 Cámaras 1080p</span>
-                      <span class="text-xs text-slate-400 font-medium">$180,000</span>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input type="radio" name="base-kit" value="cctv_8" class="peer hidden">
-                    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-center transition">
-                      <i class="fa-solid fa-camera-rotate text-brand-400 text-lg mb-1 block"></i>
-                      <span class="text-xs font-bold block text-white">Kit 8 Cámaras 4K</span>
-                      <span class="text-xs text-slate-400 font-medium">$340,000</span>
-                    </div>
-                  </label>
+                <div class="flex items-center justify-between gap-3">
+                  <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">1. Kit Base de Seguridad</label>
+                  <button type="button" onclick="openBaseKitEditor()" class="text-xs text-brand-400 hover:text-brand-300 font-semibold"><i class="fa-solid fa-sliders mr-1"></i>Administrar kits</button>
                 </div>
+                <div id="quote-base-kits" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                <p class="text-xs text-slate-500">Personalizá los kits y sus componentes en «Administrar kits».</p>
               </div>
 
               <div class="space-y-3 border-t border-slate-800 pt-4">
@@ -235,66 +294,96 @@
 
           <!-- Live Quote Summary Box -->
           <div class="lg:col-span-5 space-y-4">
-            <div id="print-area" data-quote-theme="classic" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl relative">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div>
-                  <div class="flex items-center gap-3 mb-3">
+            <div id="print-area" data-quote-theme="classic" class="quote-paper bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-xl relative">
+              <div class="quote-paper-header flex items-start justify-between gap-6 pb-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-start gap-3 mb-3">
                     <img id="summary-brand-logo" class="hidden max-w-20 max-h-14 object-contain" alt="Logo de Leyra Seguridad">
                     <div class="min-w-0">
-                      <p id="summary-brand-name" class="font-bold text-lg text-white">Leyra Seguridad</p>
-                      <p id="summary-brand-tagline" class="text-xs text-slate-400"></p>
+                      <p id="summary-brand-name" class="font-bold text-lg text-slate-900">Leyra Seguridad</p>
+                      <p id="summary-brand-tagline" class="text-xs text-slate-600"></p>
                     </div>
                   </div>
-                  <p id="summary-brand-contact" class="text-[10px] text-slate-400"></p>
-                  <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-shield-halved text-brand-500 text-xl no-print"></i>
-                    <span id="summary-document-title" class="font-bold text-lg text-white print-brand">Presupuesto de Insumos</span>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-[10px] text-slate-600 mt-2">
+                    <div class="space-y-0.5">
+                      <p id="summary-brand-address"></p>
+                      <p id="summary-brand-location"></p>
+                      <p id="summary-brand-phone"></p>
+                      <p id="summary-brand-mobile"></p>
+                      <p id="summary-brand-email"></p>
+                    </div>
+                    <div class="space-y-0.5">
+                      <p id="summary-brand-tax-id"></p>
+                      <p id="summary-brand-tax-condition"></p>
+                      <p id="summary-brand-gross-income"></p>
+                      <p id="summary-brand-activity-start"></p>
+                    </div>
                   </div>
-                  <p class="text-xs text-slate-400 mt-1" id="quote-date-display">Fecha: --/--/----</p>
                 </div>
-                <div class="text-right">
-                  <p id="quote-number-display" class="text-xs font-mono text-slate-400"></p>
-                  <span id="summary-document-badge" class="px-2.5 py-1 bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-semibold rounded-full">Insumos</span>
+                <div class="quote-paper-meta shrink-0 text-right">
+                  <p id="summary-document-title" class="font-bold text-xl text-slate-900 print-brand">Presupuesto</p>
+                  <p id="quote-number-display" class="text-sm font-semibold text-slate-700">Nº BORRADOR</p>
+                  <p class="text-xs text-slate-600 mt-1" id="quote-date-display">Fecha: --/--/----</p>
+                  <span id="summary-document-badge" class="hidden">Insumos</span>
                 </div>
               </div>
 
               <!-- Customer summary -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1">
-                <p class="text-xs text-slate-400">Presupuestado para:</p>
-                <p class="font-semibold text-sm text-white" id="summary-client-name">Cliente No Especificado</p>
-                <p class="text-xs text-slate-400" id="summary-client-phone"></p>
-                <p class="text-xs text-slate-400" id="summary-client-address"></p>
-                <p class="text-xs text-slate-400" id="summary-property-type">Comercio / Local</p>
-                <p class="text-xs text-slate-400" id="summary-service-type"></p>
+              <div class="quote-customer-block py-3 space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-700">Cliente</p>
+                <p class="font-semibold text-sm text-slate-900" id="summary-client-name">Cliente No Especificado</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-700">
+                  <p id="summary-client-number"></p>
+                  <p id="summary-client-tax-id"></p>
+                  <p id="summary-client-address"></p>
+                  <p id="summary-client-locality"></p>
+                  <p id="summary-client-province"></p>
+                  <p id="summary-client-postal-code"></p>
+                  <p id="summary-client-contact"></p>
+                  <p id="summary-client-tax-condition"></p>
+                  <p id="summary-client-phone"></p>
+                  <p id="summary-property-type">Comercio / Local</p>
+                </div>
+                <p class="text-xs text-slate-700" id="summary-service-type"></p>
               </div>
 
+              <p class="text-[10px] text-slate-600">Todos los importes están expresados en pesos argentinos (ARS).</p>
+
               <!-- Itemized Breakdown -->
-              <div class="space-y-2 text-xs">
-                <p class="font-semibold text-slate-300 uppercase tracking-wider mb-2">Desglose de Conceptos:</p>
-                <div id="summary-kit-row" class="flex justify-between py-1 border-b border-slate-800/60">
-                  <span class="text-slate-400" id="summary-kit-name">Kit Base</span>
-                  <span class="font-semibold text-slate-200" id="summary-kit-price">$0</span>
-                </div>
-                <div id="summary-labor-row" class="flex justify-between py-1 border-b border-slate-800/60">
-                  <span class="text-slate-400">Mano de obra</span>
-                  <span class="font-semibold text-slate-200" id="summary-labor-price">$0</span>
-                </div>
-                <div id="summary-discount-row" class="flex justify-between py-1 text-emerald-400 border-b border-slate-800/60 hidden">
-                  <span>Descuento Aplicado</span>
-                  <span class="font-semibold" id="summary-discount-price">-$0</span>
-                </div>
-                <div id="summary-extra-items" class="space-y-2"></div>
+              <div class="quote-items-wrap">
+                <table class="quote-items-table w-full text-xs">
+                  <thead>
+                    <tr>
+                      <th class="text-left font-semibold">Código</th>
+                      <th class="text-left font-semibold">Descripción</th>
+                      <th class="text-right font-semibold">Cantidad</th>
+                      <th class="text-right font-semibold">P/Unitario</th>
+                      <th class="text-right font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="summary-item-rows"></tbody>
+                </table>
               </div>
 
               <!-- Total amount -->
-              <div class="pt-2 border-t border-slate-700 flex justify-between items-end">
-                <div>
-                  <span id="summary-total-label" class="text-xs text-slate-400 block">Total de insumos</span>
-                  <span id="summary-validity" class="text-xs text-slate-500">Validez del presupuesto: 15 días</span>
+              <div class="quote-totals pt-3 space-y-1">
+                <div class="flex justify-between text-xs text-slate-700">
+                  <span>Subtotal:</span>
+                  <span id="summary-subtotal-price">$0</span>
                 </div>
-                <span class="text-2xl font-bold text-accent-500 print-total" id="summary-total-price">$0</span>
+                <div id="summary-discount-row" class="flex justify-between text-xs text-slate-700 hidden">
+                  <span>Descuento:</span>
+                  <span id="summary-discount-price">-$0</span>
+                </div>
+                <div class="flex justify-between items-end pt-2">
+                  <div>
+                    <span id="summary-total-label" class="text-sm font-bold text-slate-900 block">Total</span>
+                    <span id="summary-validity" class="text-xs text-slate-600">Validez del presupuesto: 15 días</span>
+                  </div>
+                  <span class="text-xl font-bold text-slate-900 print-total" id="summary-total-price">$0</span>
+                </div>
               </div>
-              <p id="summary-notes" class="text-xs text-slate-500 whitespace-pre-wrap"></p>
+              <p id="summary-notes" class="text-xs text-slate-700 whitespace-pre-wrap"></p>
             </div>
 
             <!-- Actions buttons -->
@@ -356,6 +445,45 @@
       <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
         <button type="button" onclick="closeModal('new-quote-service-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium">Cancelar</button>
         <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-semibold">Guardar servicio</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="base-kit-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
+  <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+      <h3 id="base-kit-modal-title" class="font-bold text-lg text-white">Nuevo kit base</h3>
+      <button type="button" onclick="closeBaseKitEditor()" class="text-slate-400 hover:text-white" aria-label="Cerrar"><i class="fa-solid fa-xmark text-xl"></i></button>
+    </div>
+    <form id="base-kit-form" onsubmit="saveBaseKit(event)" class="p-5 space-y-4 overflow-y-auto">
+      <div>
+        <label for="base-kit-name" class="block text-xs font-semibold text-slate-400 mb-1">Nombre del kit *</label>
+        <input id="base-kit-name" type="text" maxlength="80" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+      </div>
+      <div class="border-t border-slate-800 pt-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-300">Agregar un artículo del inventario</p>
+        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_90px_auto] gap-2">
+          <select id="base-kit-inventory-select" class="min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500"></select>
+          <input id="base-kit-inventory-quantity" type="number" min="1" step="1" value="1" aria-label="Cantidad" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+          <button type="button" onclick="addInventoryItemToBaseKit()" class="bg-slate-800 hover:bg-slate-700 text-white rounded-xl px-3 py-2 text-sm font-medium">Agregar</button>
+        </div>
+      </div>
+      <div class="border-t border-slate-800 pt-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-300">Agregar otro componente</p>
+        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_auto] gap-2">
+          <input id="base-kit-custom-name" type="text" maxlength="100" placeholder="Nombre del componente" class="min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+          <input id="base-kit-custom-price" type="number" min="0" step="1" placeholder="Precio $" aria-label="Precio del componente" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-brand-500">
+          <button type="button" onclick="addCustomItemToBaseKit()" class="bg-slate-800 hover:bg-slate-700 text-white rounded-xl px-3 py-2 text-sm font-medium">Agregar</button>
+        </div>
+      </div>
+      <div class="border-t border-slate-800 pt-4 space-y-2">
+        <p class="text-xs font-semibold text-slate-300">Componentes incluidos</p>
+        <div id="base-kit-components" class="space-y-2"></div>
+        <p class="text-right text-sm font-semibold text-white">Precio del kit: <span id="base-kit-total">$0</span></p>
+      </div>
+      <div class="pt-4 flex justify-end gap-3 border-t border-slate-800">
+        <button type="button" onclick="closeBaseKitEditor()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium">Cancelar</button>
+        <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-semibold">Guardar kit</button>
       </div>
     </form>
   </div>

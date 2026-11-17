@@ -52,6 +52,10 @@
       { id: 'inv-5', name: 'Bobina Cable UTP Categoria 5e Exterior (100m)', category: 'Cables & Fuentes', price: 38000, stock: 8, minStock: 3 }
     ];
     const initialInventoryCategories = ['CCTV & DVR', 'Alarmas & Sensores', 'Cables & Fuentes', 'Control Acceso', 'Accesorios'];
+    const initialQuoteKits = [
+      { id: 'cctv_4', name: 'Kit 4 Cámaras 1080p', items: [{ inventoryId: '', description: 'Kit base de 4 cámaras', category: 'Kit Base', quantity: 1, unitPrice: 180000 }] },
+      { id: 'cctv_8', name: 'Kit 8 Cámaras 4K Hikvision', items: [{ inventoryId: '', description: 'Kit base de 8 cámaras', category: 'Kit Base', quantity: 1, unitPrice: 340000 }] }
+    ];
     const initialObjects = [];
 
     // LocalStorage Helper
@@ -65,6 +69,118 @@
       window.CloudSync?.persistKey(key, data);
     }
 
+    const savedDollarRate = Number(loadData('dollarRate', 0));
+    let dollarRateSource = loadData('dollarRateSource', 'api');
+    let dollarRate = dollarRateSource === 'bna' ? savedDollarRate : 0;
+    let dollarRateChangeVersion = 0;
+    let dollarRateRequestId = 0;
+
+    function getInventoryPriceInPesos(item) {
+      const price = Number(item.price);
+      if (!Number.isFinite(price) || price < 0) return null;
+      if ((item.priceCurrency || 'ARS') === 'USD') {
+        return dollarRate > 0 ? price * dollarRate : null;
+      }
+      return price;
+    }
+
+    function formatInventoryPriceARS(item) {
+      const price = getInventoryPriceInPesos(item);
+      return price === null ? 'Cotización pendiente' : `$ ${price.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`;
+    }
+
+    function formatInventoryPriceBoth(item) {
+      const amount = Number(item.price) || 0;
+      const currency = item.priceCurrency || 'ARS';
+      const dollarPrice = currency === 'USD' ? amount : (dollarRate > 0 ? amount / dollarRate : null);
+      const pesoPrice = currency === 'ARS' ? amount : getInventoryPriceInPesos(item);
+      const formattedDollars = dollarPrice === null
+        ? 'USD: —'
+        : `USD: US$ ${dollarPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      const formattedPesos = pesoPrice === null
+        ? 'ARS: —'
+        : `ARS: $ ${pesoPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      return `<div>${formattedPesos}</div><div class="text-slate-500">${formattedDollars}</div>`;
+    }
+
+    function updateDollarRateStatus(message) {
+      const status = document.getElementById('dollar-rate-status');
+      if (status) status.textContent = message;
+      const boxStatus = document.getElementById('cloud-dollar-rate-status');
+      if (boxStatus) boxStatus.textContent = message;
+    }
+
+    function updateDollarRateBox(rate) {
+      const value = document.getElementById('cloud-dollar-rate');
+      if (value) {
+        value.textContent = rate > 0
+          ? `$ ${rate.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`
+          : 'Cotización no disponible';
+      }
+    }
+
+    function refreshInventoryPrices() {
+      if (document.body.dataset.page === 'inventory' && typeof renderInventory === 'function') renderInventory();
+      if (document.body.dataset.page === 'quotes') {
+        if (typeof updateQuoteInventoryOptions === 'function') updateQuoteInventoryOptions();
+        if (typeof renderQuoteKits === 'function') renderQuoteKits();
+        if (typeof renderQuoteInventoryItems === 'function') renderQuoteInventoryItems();
+        if (typeof renderBaseKitDraft === 'function') renderBaseKitDraft();
+        if (typeof calculateQuote === 'function') calculateQuote();
+      }
+    }
+
+    function setDollarRate(rate, source) {
+      dollarRateChangeVersion += 1;
+      dollarRate = rate;
+      dollarRateSource = source;
+      saveData('dollarRate', dollarRate);
+      saveData('dollarRateSource', dollarRateSource);
+      const input = document.getElementById('quote-dollar-rate');
+      if (input) input.value = String(rate);
+      updateDollarRateBox(rate);
+      updateDollarRateStatus(source === 'bna'
+        ? 'Venta Banco Nación · Dólar API'
+        : 'No se pudo consultar la venta del Banco Nación.');
+      refreshInventoryPrices();
+    }
+
+    async function refreshDollarRateFromApi() {
+      const requestId = ++dollarRateRequestId;
+      const changeVersion = dollarRateChangeVersion;
+      updateDollarRateStatus('Consultando cotización del dólar…');
+      try {
+        const response = await fetch('https://dolarapi.com/v1/dolares');
+        if (!response.ok) throw new Error(`Dólar API respondió ${response.status}`);
+        const rates = await response.json();
+        const bankRate = Array.isArray(rates) ? rates.find(rate => rate.casa === 'oficial') : null;
+        const salePrice = Number(bankRate?.venta);
+        if (!Number.isFinite(salePrice) || salePrice <= 0) {
+          throw new Error('Dólar API no devolvió una cotización de venta oficial válida');
+        }
+        if (requestId !== dollarRateRequestId || changeVersion !== dollarRateChangeVersion) return;
+        setDollarRate(salePrice, 'bna');
+      } catch (error) {
+        if (requestId !== dollarRateRequestId || changeVersion !== dollarRateChangeVersion) return;
+        console.error('No se pudo actualizar la cotización del dólar:', error);
+        updateDollarRateStatus(dollarRate > 0
+          ? 'Sin conexión · se mantiene la última venta Banco Nación guardada.'
+          : 'No se pudo consultar la venta Banco Nación.');
+      }
+    }
+
+    function initializeDollarRate() {
+      const input = document.getElementById('quote-dollar-rate');
+      if (input && dollarRate > 0) input.value = String(dollarRate);
+      updateDollarRateBox(dollarRate);
+      updateDollarRateStatus(dollarRate > 0
+        ? 'Última venta Banco Nación guardada'
+        : 'Consultando venta Banco Nación…');
+      refreshDollarRateFromApi();
+    }
+    window.initializeDollarRate = initializeDollarRate;
+    window.refreshDollarRateFromApi = refreshDollarRateFromApi;
+
     // App State
     let clients = loadData('clients', initialClients);
     let orders = loadData('orders', initialOrders);
@@ -74,23 +190,53 @@
       ...inventory.map(item => item.category).filter(Boolean)
     ])];
     let quoteServices = loadData('quoteServices', []);
+    let quoteKits = loadData('quoteKits', initialQuoteKits);
     let quoteBranding = {
       businessName: 'Leyra Seguridad',
       tagline: 'Instalación y mantenimiento de seguridad electrónica',
-      phone: '',
-      email: '',
-      address: '',
+      phone: '3401-493569',
+      mobile: '3401-409604',
+      email: 'electroleyra@hotmail.com',
+      address: '9 de Julio 505',
+      postalCode: '2147',
+      locality: 'San Genaro',
+      province: 'Santa Fe',
+      taxId: '20-21510183-6',
+      taxCondition: 'Monotributo',
+      grossIncome: '',
+      activityStart: '',
       logo: '',
-      color: '#0369a1',
+      color: '#E53935',
       theme: 'classic',
       ...loadData('quoteBranding', {})
     };
+    quoteBranding.phone = quoteBranding.phone || '3401-493569';
+    quoteBranding.mobile = quoteBranding.mobile || '3401-409604';
+    quoteBranding.email = quoteBranding.email || 'electroleyra@hotmail.com';
+    quoteBranding.address = quoteBranding.address || '9 de Julio 505';
+    quoteBranding.postalCode = quoteBranding.postalCode || '2147';
+    quoteBranding.locality = quoteBranding.locality || 'San Genaro';
+    quoteBranding.province = quoteBranding.province || 'Santa Fe';
+    quoteBranding.taxId = quoteBranding.taxId || '20-21510183-6';
+    quoteBranding.taxCondition = quoteBranding.taxCondition || 'Monotributo';
     let objects = loadData('objects', initialObjects);
     let quotes = loadData('quotes', []);
     let quoteExtraItems = [];
     let quoteInventoryItems = [];
     let activeQuoteId = '';
     let quoteDocumentMode = 'estimate';
+
+    window.getAppSyncData = () => ({
+      clients,
+      orders,
+      inventory,
+      inventoryCategories,
+      objects,
+      quotes,
+      quoteServices,
+      quoteKits,
+      quoteBranding
+    });
 
     // Initialization
     let appPageInitialized = false;
@@ -109,7 +255,7 @@
       if (page === 'clients') renderClients();
       if (page === 'objects') { populateObjectClientDropdown(); renderObjects(); }
       if (page === 'inventory') { populateInventoryCategories(); renderInventory(); }
-      if (page === 'quotes') { populateQuoteClientDropdown(); populateQuoteServiceOptions(); initializeQuoteBranding(); updateQuoteInventoryOptions(); renderQuoteInventoryItems(); calculateQuote(); renderQuotes(); }
+      if (page === 'quotes') { populateQuoteClientDropdown(); populateQuoteServiceOptions(); initializeQuoteBranding(); renderQuoteKits(); updateQuoteInventoryOptions(); renderQuoteInventoryItems(); calculateQuote(); renderQuotes(); }
     }
 
     window.initializeAppPage = initializeAppPage;
@@ -122,6 +268,7 @@
       if (key === 'objects' && Array.isArray(value)) objects = value;
       if (key === 'quotes' && Array.isArray(value)) quotes = value;
       if (key === 'quoteServices' && Array.isArray(value)) quoteServices = value;
+      if (key === 'quoteKits' && Array.isArray(value)) quoteKits = value;
       if (key === 'quoteBranding' && value && typeof value === 'object' && !Array.isArray(value)) {
         quoteBranding = { ...quoteBranding, ...value };
       }
@@ -145,8 +292,9 @@
       if (key === 'objects' && page === 'objects') renderObjects();
       if (key === 'quotes' && page === 'quotes') renderQuotes();
       if (key === 'quoteServices' && page === 'quotes') populateQuoteServiceOptions();
+      if (key === 'quoteKits' && page === 'quotes') renderQuoteKits();
       if (key === 'quoteBranding' && page === 'quotes') initializeQuoteBranding();
-      if (page === 'quotes' && ['clients', 'inventory', 'inventoryCategories', 'quotes', 'quoteServices'].includes(key)) calculateQuote();
+      if (page === 'quotes' && ['clients', 'inventory', 'inventoryCategories', 'quotes', 'quoteServices', 'quoteKits'].includes(key)) calculateQuote();
     };
 
     // Navigation logic

@@ -17,3 +17,7 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         sync: false
+      - key: UPDATE_GITHUB_REPOSITORY
+        sync: false
+      - key: UPDATE_GITHUB_TOKEN
+        sync: false

@@ -1,0 +1,28 @@
+name: Keep Supabase active
+
+on:
+  schedule:
+    - cron: '17 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Ping Render health endpoint and Supabase
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --connect-timeout 20 \
+            --max-time 90 \
+            --retry 8 \
+            --retry-all-errors \
+            --retry-delay 15 \
+            --retry-max-time 600 \
+            https://leyra-seguridad-api.onrender.com/api/health

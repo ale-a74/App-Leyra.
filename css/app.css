@@ -1,21 +1,63 @@
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
-#print-area { --quote-brand-color: #0369a1; }
-#print-area[data-quote-theme="classic"] { border-top: 5px solid var(--quote-brand-color); }
-#print-area[data-quote-theme="modern"] { border-left: 5px solid var(--quote-brand-color); }
-#print-area[data-quote-theme="minimal"] { border-color: transparent; box-shadow: none; }
+::-webkit-scrollbar-track { background: #121212; }
+::-webkit-scrollbar-thumb { background: #3A3A3A; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #525252; }
+#print-area {
+  --quote-brand-color: #E53935;
+  color: #1f2937;
+  background: #fff;
+  border-color: #d1d5db;
+}
+#print-area .text-white,
+#print-area .text-slate-200,
+#print-area .text-slate-300 { color: #1f2937; }
+#print-area .text-slate-400,
+#print-area .text-slate-500 { color: #4b5563; }
+#print-area .text-brand-400,
+#print-area .text-brand-500 { color: #1f2937; }
+.quote-paper-header { border-bottom: 1px solid #d1d5db; }
+.quote-customer-block { border-bottom: 1px solid #d1d5db; }
+.quote-items-table { border-collapse: collapse; }
+.quote-items-table th {
+  padding: 8px 6px;
+  color: #374151;
+  background: #f3f4f6;
+  border-top: 1px solid #9ca3af;
+  border-bottom: 1px solid #9ca3af;
+}
+.quote-items-table td {
+  padding: 8px 6px;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+}
+.quote-totals { border-top: 1px solid #9ca3af; }
+#print-area #summary-total-price { color: #111827 !important; }
+.order-row { cursor: pointer; }
+.order-row:focus-visible { outline: 2px solid #E53935; outline-offset: -2px; }
+.order-row[aria-expanded="true"] { background: rgb(58 58 58 / 0.55); }
 @media print {
   body * { visibility: hidden; }
   #print-area, #print-area * { visibility: visible; }
-  #print-area { position: absolute; left: 0; top: 0; width: 100%; color: #000 !important; background: #fff !important; }
-  #print-area * { color: #111827 !important; border-color: #d1d5db !important; background-color: transparent !important; box-shadow: none !important; }
-  #print-area .print-brand, #print-area .print-total { color: var(--quote-brand-color) !important; }
-  #print-area[data-quote-theme="classic"] { border-top-color: var(--quote-brand-color) !important; }
-  #print-area[data-quote-theme="modern"] { border-left-color: var(--quote-brand-color) !important; }
-  #print-area[data-quote-theme="minimal"] { border-color: transparent !important; }
-  #print-area .print-total { font-size: 24pt !important; }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 !important;
+    color: #111827 !important;
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  #print-area * { color: #111827 !important; box-shadow: none !important; }
+  #print-area .quote-paper-header,
+  #print-area .quote-customer-block,
+  #print-area .quote-totals { border-color: #9ca3af !important; }
+  #print-area .quote-items-table th { background: #f3f4f6 !important; }
+  #print-area .quote-items-table th,
+  #print-area .quote-items-table td { border-color: #d1d5db !important; }
+  #print-area .print-total { font-size: 18pt !important; }
   .no-print { display: none !important; }
   @page { size: A4; margin: 16mm; }
 }

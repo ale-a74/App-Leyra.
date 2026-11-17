@@ -1,0 +1,53 @@
+name: Publish desktop update
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release tag
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $expectedTag = "v$version"
+          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
+            throw "El tag $env:GITHUB_REF_NAME debe coincidir con $expectedTag."
+          }
+
+      - name: Build Windows installer
+        run: npm run build
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $assets = @(Get-ChildItem -Path installer-build -File |
+            Where-Object { $_.Name -eq 'latest.yml' -or $_.Name -match '\.exe(\.blockmap)?$' } |
+            ForEach-Object { $_.FullName })
+          if (-not ($assets | Where-Object { $_ -like '*latest.yml' })) {
+            throw 'Falta latest.yml en los archivos generados.'
+          }
+          if (-not ($assets | Where-Object { $_ -like '*.exe' })) {
+            throw 'Falta el instalador de Windows en los archivos generados.'
+          }
+          gh release create $env:GITHUB_REF_NAME @assets --repo $env:GITHUB_REPOSITORY --title $env:GITHUB_REF_NAME --generate-notes

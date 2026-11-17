@@ -4,12 +4,13 @@
   const PENDING_KEY = 'leyra_pending_sync';
   const SYNC_KEYS = [
     'clients', 'orders', 'inventory', 'inventoryCategories', 'objects',
-    'quotes', 'quoteServices', 'quoteBranding'
+    'quotes', 'quoteServices', 'quoteKits', 'quoteBranding'
   ];
   let socket;
   let initialized = false;
   let pendingWrites = new Map();
   let writeChain = Promise.resolve();
+  let syncInProgress;
   let activeBaseUrl = '';
   let statusElement;
 
@@ -39,17 +40,10 @@
     return fetch(`${getBaseUrl()}${path}`, { ...options, headers });
   }
 
-  function readLocalData() {
-    return Object.fromEntries(SYNC_KEYS.flatMap(key => {
-      const value = localStorage.getItem(`securtech_${key}`);
-      if (value === null) return [];
-      return [[key, JSON.parse(value)]];
-    }));
-  }
-
   function applyCloudData(data) {
     for (const [key, value] of Object.entries(data)) {
       if (!SYNC_KEYS.includes(key)) continue;
+      if (pendingWrites.has(key)) continue;
       localStorage.setItem(`securtech_${key}`, JSON.stringify(value));
       window.applyCloudState(key, value);
     }
@@ -59,19 +53,38 @@
     const saved = localStorage.getItem(PENDING_KEY);
     if (!saved) return;
     const data = JSON.parse(saved);
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    if (!data || typeof data !== 'object') {
       throw new Error('La cola local de sincronización está dañada.');
     }
-    for (const [key, value] of Object.entries(data)) {
-      if (!SYNC_KEYS.includes(key)) continue;
-      pendingWrites.set(key, value);
-      localStorage.setItem(`securtech_${key}`, JSON.stringify(value));
-      window.applyCloudState(key, value);
+    if (Array.isArray(data)) {
+      for (const key of data) {
+        if (!SYNC_KEYS.includes(key)) continue;
+        const stored = localStorage.getItem(`securtech_${key}`);
+        if (stored === null) {
+          throw new Error(`No se encontraron datos locales para sincronizar: ${key}.`);
+        }
+        const value = pendingWrites.has(key) ? pendingWrites.get(key) : JSON.parse(stored);
+        pendingWrites.set(key, value);
+        localStorage.setItem(`securtech_${key}`, JSON.stringify(value));
+        window.applyCloudState(key, value);
+      }
+    } else {
+      for (const [key, queuedValue] of Object.entries(data)) {
+        if (!SYNC_KEYS.includes(key)) continue;
+        const stored = localStorage.getItem(`securtech_${key}`);
+        const value = pendingWrites.has(key)
+          ? pendingWrites.get(key)
+          : stored === null ? queuedValue : JSON.parse(stored);
+        pendingWrites.set(key, value);
+        if (stored === null) localStorage.setItem(`securtech_${key}`, JSON.stringify(value));
+        window.applyCloudState(key, value);
+      }
+      storePendingWrites();
     }
   }
 
   function storePendingWrites() {
-    localStorage.setItem(PENDING_KEY, JSON.stringify(Object.fromEntries(pendingWrites)));
+    localStorage.setItem(PENDING_KEY, JSON.stringify([...pendingWrites.keys()]));
   }
 
   async function loadCloudData() {
@@ -82,9 +95,13 @@
     }
     const result = await response.json();
     if (Object.keys(result.data).length === 0) {
+      const localData = window.getAppSyncData();
+      if (!localData || Object.keys(localData).length === 0) {
+        throw new Error('No hay datos locales disponibles para inicializar la base.');
+      }
       const bootstrapResponse = await request('/api/data/bootstrap', {
         method: 'POST',
-        body: JSON.stringify({ data: readLocalData() })
+        body: JSON.stringify({ data: localData })
       });
       if (bootstrapResponse.status === 409) return loadCloudData();
       if (!bootstrapResponse.ok) throw new Error('No se pudieron copiar los datos locales al servidor.');
@@ -99,14 +116,17 @@
 
   function connectSocket() {
     if (socket) socket.disconnect();
+    if (typeof window.io !== 'function') {
+      setStatus('Sin conexión en tiempo real; los datos quedan guardados localmente');
+      return;
+    }
     socket = window.io(activeBaseUrl, {
       auth: { token: getToken() },
       transports: ['websocket', 'polling'],
       reconnection: true
     });
     socket.on('connect', () => {
-      setStatus('Sincronización en tiempo real activa', true);
-      flushPendingWrites();
+      synchronizeCloudState();
     });
     socket.on('disconnect', () => setStatus('Reconectando…'));
     socket.on('connect_error', error => {
@@ -115,16 +135,23 @@
     });
     socket.on('cloud:data:update', ({ key, value }) => {
       if (!SYNC_KEYS.includes(key)) return;
+      if (pendingWrites.has(key)) return;
       localStorage.setItem(`securtech_${key}`, JSON.stringify(value));
       window.applyCloudState(key, value);
     });
   }
 
   async function persistKey(key, value) {
-    if (!initialized || !SYNC_KEYS.includes(key)) return;
+    if (!SYNC_KEYS.includes(key)) return;
     try {
-      pendingWrites.set(key, value);
+      const localValue = JSON.parse(JSON.stringify(value));
+      localStorage.setItem(`securtech_${key}`, JSON.stringify(localValue));
+      pendingWrites.set(key, localValue);
       storePendingWrites();
+      if (!initialized || !getToken() || !getBaseUrl()) {
+        setStatus('Guardado localmente; pendiente de sincronización');
+        return;
+      }
       await flushPendingWrites();
     } catch (error) {
       console.error('No se pudo guardar la cola de sincronización:', error);
@@ -149,11 +176,29 @@
         if (pendingWrites.get(key) === value) pendingWrites.delete(key);
         storePendingWrites();
       }
+      setStatus('Sincronización en tiempo real activa', true);
     }).catch(error => {
       console.error('Error al sincronizar datos:', error);
       setStatus('Pendiente de conexión; los datos locales están guardados');
     });
     return writeChain;
+  }
+
+  function synchronizeCloudState() {
+    if (syncInProgress) return syncInProgress;
+    syncInProgress = (async () => {
+      try {
+        await loadCloudData();
+        await flushPendingWrites();
+        setStatus('Sincronización en tiempo real activa', true);
+      } catch (error) {
+        console.error('No se pudo actualizar el estado de la nube:', error);
+        setStatus('Sin conexión; los cambios están guardados localmente');
+      } finally {
+        syncInProgress = null;
+      }
+    })();
+    return syncInProgress;
   }
 
   async function loginAndSync(baseUrl, password) {
@@ -178,11 +223,24 @@
   function createSyncUi() {
     const control = document.createElement('button');
     control.type = 'button';
-    control.className = 'mx-4 my-3 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 no-print';
-    control.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-cloud"></i><span>Sincronización</span></span><span id="cloud-sync-status" class="mt-1 block text-[10px] text-amber-400">Solo en este dispositivo</span>';
+    control.className = 'mx-4 my-3 rounded-xl border border-slate-700 bg-slate-800/60 p-3 text-left text-xs text-slate-300 hover:bg-slate-800 no-print';
+    const savedDollarRate = Number(localStorage.getItem('securtech_dollarRate'));
+    const savedDollarSource = localStorage.getItem('securtech_dollarRateSource');
+    const hasSavedBankRate = Number.isFinite(savedDollarRate) && savedDollarRate > 0 && savedDollarSource === 'bna';
+    control.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-cloud"></i><span>Sincronización</span></span><span id="cloud-sync-status" class="mt-1 block text-[10px] text-amber-400">Guardado en este dispositivo</span>';
     statusElement = control.querySelector('#cloud-sync-status');
     control.addEventListener('click', () => showSetupModal());
-    document.getElementById('sidebar')?.append(control);
+
+    const dollarRateBox = document.createElement('div');
+    dollarRateBox.className = 'mx-4 mt-3 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 no-print';
+    dollarRateBox.innerHTML = `
+      <span class="block text-[10px] uppercase tracking-wider text-slate-400">Dólar hoy · Banco Nación</span>
+      <strong id="cloud-dollar-rate" class="mt-1 block text-sm text-white">${hasSavedBankRate ? `$ ${savedDollarRate.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS` : 'Consultando…'}</strong>
+      <span id="cloud-dollar-rate-status" class="mt-1 block text-[10px] text-slate-500">Cotización de venta</span>`;
+    const sidebar = document.getElementById('sidebar');
+    sidebar?.append(dollarRateBox);
+    sidebar?.append(control);
+    window.initializeDollarRate?.();
 
     const overlay = document.createElement('div');
     overlay.id = 'cloud-sync-modal';
@@ -191,7 +249,7 @@
       <form class="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
         <div>
           <h2 class="text-lg font-bold text-white">Sincronizar Leyra Seguridad</h2>
-          <p class="mt-1 text-xs text-slate-400">Conectá el backend de Render para sincronizar clientes, órdenes, inventario y presupuestos entre dispositivos.</p>
+          <p class="mt-1 text-xs text-slate-400">Los cambios se guardan en este dispositivo y se sincronizan con Render cuando hay conexión.</p>
         </div>
         <div>
           <label for="cloud-api-url" class="mb-1 block text-xs font-medium text-slate-300">URL HTTPS del servidor</label>
@@ -260,9 +318,10 @@
 
   async function initialize() {
     createSyncUi();
+    restorePendingWrites();
     const baseUrl = getBaseUrl();
     if (!baseUrl) {
-      setStatus('Solo en este dispositivo');
+      setStatus(pendingWrites.size ? 'Guardado localmente; pendiente de sincronización' : 'Solo en este dispositivo');
       return false;
     }
     if (!getToken()) {
@@ -281,13 +340,23 @@
       if (getToken()) {
         initialized = true;
         activeBaseUrl = baseUrl;
-        restorePendingWrites();
         connectSocket();
+        if (error instanceof TypeError || !navigator.onLine) {
+          setStatus('Sin conexión; los cambios están guardados localmente');
+          return false;
+        }
       }
       showSetupModal();
       return true;
     }
   }
+
+  window.addEventListener('offline', () => {
+    setStatus('Sin conexión; los cambios están guardados localmente');
+  });
+  window.addEventListener('online', () => {
+    if (initialized && getToken() && getBaseUrl()) return synchronizeCloudState();
+  });
 
   window.CloudSync = { initialize, persistKey };
 })();
